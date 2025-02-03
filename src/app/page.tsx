@@ -6,10 +6,9 @@ import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { Sidebar } from "@/components/ui/sidebar"
+import { Sidebar, SidebarProvider } from "@/components/ui/sidebar"
 import { CodePreview } from "@/components/code-preview"
 import { FileTree } from "@/components/file-tree"
-import { Icons } from "@/components/icons"
 import { ImageUpload } from "@/components/image-upload"
 
 interface GeneratedFile {
@@ -21,6 +20,7 @@ export default function Page() {
   const [files, setFiles] = useState<GeneratedFile[]>([])
   const [selectedFile, setSelectedFile] = useState<GeneratedFile | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [activeTab, setActiveTab] = useState("preview")
   const [prompt, setPrompt] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
@@ -109,76 +109,126 @@ export default function Page() {
     }
   }
 
+  const handleDeploy = async () => {
+    try {
+      const response = await fetch("/api/deploy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          files: files.reduce(
+            (acc, file) => ({
+              ...acc,
+              [file.path]: file.content,
+            }),
+            {},
+          ),
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to deploy")
+      }
+
+      toast({
+        title: "Success",
+        description: "Files deployed successfully",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to deploy files",
+        variant: "destructive",
+      })
+    }
+  }
+
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar className="w-64 border-r">
-        <div className="p-4 border-b">
-          <h2 className="font-semibold">Generated Files</h2>
-        </div>
-        <FileTree files={files} selectedFile={selectedFile} onSelect={setSelectedFile} />
-      </Sidebar>
-      <div className="flex-1 flex flex-col">
-        <header className="border-b">
-          <div className="container flex items-center justify-between h-14 px-4">
-            <div className="flex items-center gap-2">
-              <Icons.code className="w-5 h-5" />
-              <h1 className="text-xl font-semibold">AI Code Generator</h1>
+    <SidebarProvider>
+      <div className="flex h-screen bg-background">
+        <div className="flex-1 flex flex-col">
+          <header className="border-b">
+            <div className="container flex items-center justify-between h-14 px-4">
+              <div className="flex items-center gap-4">
+                <h1 className="text-xl font-semibold">AI Code Generator</h1>
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  <TabsList>
+                    <TabsTrigger value="preview">Preview</TabsTrigger>
+                    <TabsTrigger value="code">Code</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button onClick={() => fileInputRef.current?.click()}>Upload Image</Button>
+                <Button onClick={handleDeploy}>Deploy</Button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                <Icons.upload className="w-4 h-4 mr-2" />
-                Upload Image
-              </Button>
-              <Button>
-                <Icons.save className="w-4 h-4 mr-2" />
-                Save All
-              </Button>
-            </div>
-          </div>
-        </header>
-        <main className="flex-1 overflow-auto p-4">
-          <div className="max-w-4xl mx-auto space-y-6">
-            <Card className="p-6">
-              <Tabs defaultValue="text" className="space-y-4">
-                <TabsList>
-                  <TabsTrigger value="text">Text Prompt</TabsTrigger>
-                  <TabsTrigger value="image">Image Upload</TabsTrigger>
-                </TabsList>
-                <TabsContent value="text" className="space-y-4">
-                  <Textarea
-                    placeholder="Describe the code you want to generate..."
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    className="min-h-[100px]"
-                  />
-                  <Button onClick={handlePromptSubmit} disabled={isProcessing || !prompt.trim()}>
-                    {isProcessing ? (
-                      <>
-                        <Icons.spinner className="w-4 h-4 mr-2 animate-spin" />
-                        Generating...
-                      </>
+          </header>
+          <main className="flex-1 overflow-auto p-4">
+            <div className="max-w-4xl mx-auto space-y-6">
+              <Card className="p-6">
+                <Tabs defaultValue="text" className="space-y-4">
+                  <TabsList>
+                    <TabsTrigger value="text">Text Prompt</TabsTrigger>
+                    <TabsTrigger value="image">Image Upload</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="text" className="space-y-4">
+                    <Textarea
+                      placeholder="Example: Create an index.html file with a basic React setup"
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      className="min-h-[100px]"
+                    />
+                    <Button onClick={handlePromptSubmit} disabled={isProcessing || !prompt.trim()}>
+                      {isProcessing ? "Generating..." : "Generate Code"}
+                    </Button>
+                  </TabsContent>
+                  <TabsContent value="image">
+                    <ImageUpload ref={fileInputRef} onImageSelected={handleImageAnalysis} isLoading={isProcessing} />
+                  </TabsContent>
+                </Tabs>
+              </Card>
+              <Tabs value={activeTab}>
+                <TabsContent value="preview">
+                  <Card className="p-6">
+                    <h2 className="text-lg font-semibold mb-4">Preview</h2>
+                    {selectedFile ? (
+                      <iframe
+                        srcDoc={selectedFile.content}
+                        className="w-full h-[400px] border rounded"
+                        title="Code Preview"
+                      />
                     ) : (
-                      "Generate Code"
+                      <p>No file selected for preview.</p>
                     )}
-                  </Button>
+                  </Card>
                 </TabsContent>
-                <TabsContent value="image">
-                  <ImageUpload ref={fileInputRef} onImageSelected={handleImageAnalysis} isLoading={isProcessing} />
+                <TabsContent value="code">
+                  <Card className="p-6">
+                    <h2 className="text-lg font-semibold mb-4">Code</h2>
+                    {selectedFile && (
+                      <CodePreview
+                        file={selectedFile}
+                        onSave={async (path, content) => {
+                          setFiles(files.map((f) => (f.path === path ? { ...f, content } : f)))
+                        }}
+                      />
+                    )}
+                  </Card>
                 </TabsContent>
               </Tabs>
-            </Card>
-            {selectedFile && (
-              <CodePreview
-                file={selectedFile}
-                onSave={async (path, content) => {
-                  setFiles(files.map((f) => (f.path === path ? { ...f, content } : f)))
-                }}
-              />
-            )}
+            </div>
+          </main>
+        </div>
+        <Sidebar className="w-64 border-l" side="right">
+          <div className="p-4 border-b">
+            <h2 className="font-semibold">Generated Files</h2>
           </div>
-        </main>
+          <div className="p-2">
+            <FileTree files={files} selectedFile={selectedFile} onSelect={setSelectedFile} />
+          </div>
+        </Sidebar>
       </div>
-    </div>
+    </SidebarProvider>
   )
 }
 
