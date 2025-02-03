@@ -37,6 +37,7 @@ export async function POST(request: Request) {
       const parsedResponse = JSON.parse(text)
       return NextResponse.json(parsedResponse)
     } catch (e) {
+      console.log("Failed to parse response as JSON:", e)
       // If that fails, try to extract JSON from the text
       const jsonMatch = text.match(/\{[\s\S]*\}/)
       if (!jsonMatch) {

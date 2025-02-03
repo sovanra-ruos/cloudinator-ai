@@ -68,6 +68,18 @@ export default function Page() {
     }
   }
 
+  const saveTempCode = async (files: { path: string; content: string }[]) => {
+    try {
+      await fetch("/api/save-file", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files }),
+      })
+    } catch (error) {
+      console.error("Error saving temporary code:", error)
+    }
+  }
+
   async function handlePromptSubmit() {
     if (!prompt.trim()) return
 
@@ -89,6 +101,9 @@ export default function Page() {
         content: content as string,
       }))
 
+      // Save the generated code to a temporary location
+      await saveTempCode(newFiles)
+
       setFiles(newFiles)
       if (newFiles.length > 0) {
         setSelectedFile(newFiles[0])
@@ -109,6 +124,8 @@ export default function Page() {
       setIsProcessing(false)
     }
   }
+
+
 
   const handleDeploy = async () => {
     try {
@@ -135,6 +152,7 @@ export default function Page() {
         description: "Files deployed successfully",
       })
     } catch (error) {
+      console.log("Error deploying files:", error)
       toast({
         title: "Error",
         description: "Failed to deploy files",

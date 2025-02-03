@@ -1,10 +1,18 @@
 "use client"
 
 import * as React from "react"
+import {ReactNode} from "react";
 
 type SidebarContextType = {
   isOpen: boolean
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>
+}
+
+
+interface SidebarProps {
+  children: ReactNode
+  className?: string
+  side: "left" | "right"
 }
 
 const SidebarContext = React.createContext<SidebarContextType | undefined>(undefined)
@@ -23,12 +31,11 @@ export function useSidebar() {
   return context
 }
 
-export function Sidebar({ children }: { children: React.ReactNode }) {
-  const { isOpen } = useSidebar()
+export const Sidebar: React.FC<SidebarProps> = ({ children, className, side }) => {
   return (
-    <aside className={`w-64 bg-gray-100 p-4 transition-all ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
-      {children}
-    </aside>
+      <div className={`${className} ${side === "right" ? "border-l" : "border-r"}`}>
+        {children}
+      </div>
   )
 }
 
