@@ -11,7 +11,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" })
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" })
 
     const result = await model.generateContent(`
       Based on this description, generate a complete file structure with code:
@@ -32,39 +32,25 @@ export async function POST(request: Request) {
     const response = result.response
     const text = response.text()
 
-    // Extract JSON from the response
-    const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      throw new Error("Invalid response format")
-    }
-
-    let parsedResponse
     try {
-      parsedResponse = JSON.parse(jsonMatch[0])
-    } catch (error) {
-      console.error("Error parsing JSON:", error)
-      throw new Error("Invalid JSON in response")
-    }
-
-    // Validate response structure
-    if (!parsedResponse.files || typeof parsedResponse.files !== "object") {
-      throw new Error("Invalid response structure")
-    }
-
-    // Ensure all file contents are strings
-    for (const [key, value] of Object.entries(parsedResponse.files)) {
-      if (typeof value !== "string") {
-        parsedResponse.files[key] = JSON.stringify(value)
+      // Try to parse the entire response as JSON first
+      const parsedResponse = JSON.parse(text)
+      return NextResponse.json(parsedResponse)
+    } catch (e) {
+      // If that fails, try to extract JSON from the text
+      const jsonMatch = text.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) {
+        throw new Error("Could not extract valid JSON from response")
       }
+      const parsedResponse = JSON.parse(jsonMatch[0])
+      return NextResponse.json(parsedResponse)
     }
 
-    return NextResponse.json(parsedResponse)
   } catch (error) {
     console.error("Error in generate route:", error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to generate code" },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }
-
