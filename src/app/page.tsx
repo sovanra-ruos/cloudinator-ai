@@ -11,12 +11,11 @@ import { CodePreview } from "@/components/code-preview"
 import { FileTree } from "@/components/file-tree"
 import { ImageUpload } from "@/components/image-upload"
 
-
-
 export interface ProjectResponse {
   projectId: string;
   files: GeneratedFile[];
 }
+
 interface GeneratedFile {
   name: string;
   path: string;
@@ -28,29 +27,26 @@ export default function Page() {
   const [selectedFile, setSelectedFile] = useState<GeneratedFile | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [activeTab, setActiveTab] = useState("preview")
+  const [inputMode, setInputMode] = useState<"text" | "image">("text")
   const [prompt, setPrompt] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
-  async function handleImageAnalysis(file: File, prompt: string) {
+  async function handleImageAnalysis(file: File, imagePrompt: string) {
     setIsProcessing(true)
     try {
       const formData = new FormData()
       formData.append("image", file)
-      formData.append("prompt", prompt)
+      formData.append("prompt", imagePrompt || prompt) // Use image-specific prompt or main prompt
   
       const response = await fetch("/api/analyze-image", {
         method: "POST",
         body: formData,
+        contentType: false,
       })
   
       const data = await response.json()
       
-      // Log response data in development
-      if (process.env.NODE_ENV === 'development') {
-        console.log('API Response:', data);
-      }
-  
       if (!response.ok) {
         throw new Error(
           data.error || 
@@ -79,63 +75,63 @@ export default function Page() {
       })
     } catch (error) {
       console.error("Error analyzing image:", error)
-      
-      // More detailed error toast in development
-      const errorMessage = process.env.NODE_ENV === 'development' 
-        ? `${error instanceof Error ? error.message : "Unknown error"}\n\nCheck console for details.`
-        : "Failed to analyze image";
-      
       toast({
         title: "Error",
-        description: errorMessage,
+        description: error instanceof Error ? error.message : "Failed to analyze image",
         variant: "destructive",
       })
     } finally {
       setIsProcessing(false)
     }
   }
-  async function handlePromptSubmit() {
-    if (!prompt.trim()) return
 
-    setIsProcessing(true)
+  async function handleGenerate() {
+    if (!prompt.trim()) return;
+    setIsProcessing(true);
+    
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
-      })
-
-      const data = await response.json()
+      });
+  
+      const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || "Failed to generate code")
+        throw new Error(data.error || "Failed to generate code");
       }
-
-      const newFiles = Object.entries(data.files || {}).map(([path, content]) => ({
-        path,
-        content: content as string,
-      }))
-
-      setFiles(newFiles)
+  
+      // Check if the response contains the expected 'files' property
+      if (!data.files || !Array.isArray(data.files)) {
+        throw new Error("Invalid response format: missing files array");
+      }
+  
+      const newFiles = data.files.map((file) => ({
+        name: file.name,
+        path: file.path,
+        content: file.content,
+      }));
+  
+      setFiles(newFiles);
       if (newFiles.length > 0) {
-        setSelectedFile(newFiles[0])
+        setSelectedFile(newFiles[0]);
       }
-
+  
       toast({
         title: "Success",
         description: "Code generated successfully",
-      })
+      });
     } catch (error) {
-      console.error("Error generating code:", error)
+      console.error("Error generating code:", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to generate code",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsProcessing(false)
+      setIsProcessing(false);
     }
   }
-
   const handleDeploy = async () => {
     try {
       const response = await fetch("/api/deploy", {
@@ -185,7 +181,6 @@ export default function Page() {
                 </Tabs>
               </div>
               <div className="flex items-center gap-2">
-                <Button onClick={() => fileInputRef.current?.click()}>Upload Image</Button>
                 <Button onClick={handleDeploy}>Deploy</Button>
               </div>
             </div>
@@ -193,69 +188,86 @@ export default function Page() {
           <main className="flex-1 overflow-auto p-4">
             <div className="max-w-4xl mx-auto space-y-6">
               <Card className="p-6">
-                <Tabs defaultValue="text" className="space-y-4">
-                  <TabsList>
-                    <TabsTrigger value="text">Text Prompt</TabsTrigger>
-                    <TabsTrigger value="image">Image Upload</TabsTrigger>
+                <Tabs value={inputMode} onValueChange={(value) => setInputMode(value as "text" | "image")}>
+                  <TabsList className="mb-4">
+                    <TabsTrigger value="text">Text Only</TabsTrigger>
+                    <TabsTrigger value="image">With Image</TabsTrigger>
                   </TabsList>
-                  <TabsContent value="text" className="space-y-4">
+                  
+                  <div className="space-y-4">
                     <Textarea
-                      placeholder="Example: Create an index.html file with a basic React setup"
+                      placeholder={inputMode === "text" ? 
+                        "Describe what code you want to generate..." : 
+                        "Add any specific instructions for the image analysis (optional)..."
+                      }
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
                       className="min-h-[100px]"
                     />
-                    <Button onClick={handlePromptSubmit} disabled={isProcessing || !prompt.trim()}>
-                      {isProcessing ? "Generating..." : "Generate Code"}
-                    </Button>
-                  </TabsContent>
-                  <TabsContent value="image">
-                    <ImageUpload ref={fileInputRef} onImageSelected={handleImageAnalysis} isLoading={isProcessing} />
-                  </TabsContent>
+                    
+                    {inputMode === "image" && (
+                      <ImageUpload 
+                        ref={fileInputRef} 
+                        onImageSelected={handleImageAnalysis} 
+                        isLoading={isProcessing} 
+                      />
+                    )}
+                    
+                    {inputMode === "text" && (
+                      <Button 
+                        onClick={handleGenerate} 
+                        disabled={isProcessing || !prompt.trim()}
+                        className="w-full"
+                      >
+                        {isProcessing ? "Generating..." : "Generate Code"}
+                      </Button>
+                    )}
+                  </div>
                 </Tabs>
               </Card>
+
               <Tabs value={activeTab}>
-  <TabsContent value="preview">
-    <Card className="p-6">
-      <h2 className="text-lg font-semibold mb-4">Preview</h2>
-      {selectedFile ? (
-        selectedFile.name.endsWith('.html') ? (
-          <iframe
-            srcDoc={selectedFile.content}
-            className="w-full h-[400px] border rounded"
-            title="Code Preview"
-          />
-        ) : (
-          <CodePreview
-            file={selectedFile}
-            onSave={async (filename, content) => {
-              setFiles(files.map((f) => 
-                f.name === filename ? { ...f, content } : f
-              ))
-            }}
-          />
-        )
-      ) : (
-        <p>No file selected for preview.</p>
-      )}
-    </Card>
-  </TabsContent>
-  <TabsContent value="code">
-    <Card className="p-6">
-      <h2 className="text-lg font-semibold mb-4">Code</h2>
-      {selectedFile && (
-        <CodePreview
-          file={selectedFile}
-          onSave={async (filename, content) => {
-            setFiles(files.map((f) => 
-              f.name === filename ? { ...f, content } : f
-            ))
-          }}
-        />
-      )}
-    </Card>
-  </TabsContent>
-</Tabs>
+                <TabsContent value="preview">
+                  <Card className="p-6">
+                    <h2 className="text-lg font-semibold mb-4">Preview</h2>
+                    {selectedFile ? (
+                      selectedFile.name.endsWith('.html') ? (
+                        <iframe
+                          srcDoc={selectedFile.content}
+                          className="w-full h-[400px] border rounded"
+                          title="Code Preview"
+                        />
+                      ) : (
+                        <CodePreview
+                          file={selectedFile}
+                          onSave={async (filename, content) => {
+                            setFiles(files.map((f) => 
+                              f.name === filename ? { ...f, content } : f
+                            ))
+                          }}
+                        />
+                      )
+                    ) : (
+                      <p>No file selected for preview.</p>
+                    )}
+                  </Card>
+                </TabsContent>
+                <TabsContent value="code">
+                  <Card className="p-6">
+                    <h2 className="text-lg font-semibold mb-4">Code</h2>
+                    {selectedFile && (
+                      <CodePreview
+                        file={selectedFile}
+                        onSave={async (filename, content) => {
+                          setFiles(files.map((f) => 
+                            f.name === filename ? { ...f, content } : f
+                          ))
+                        }}
+                      />
+                    )}
+                  </Card>
+                </TabsContent>
+              </Tabs>
             </div>
           </main>
         </div>
@@ -271,4 +283,3 @@ export default function Page() {
     </SidebarProvider>
   )
 }
-

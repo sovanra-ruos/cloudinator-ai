@@ -14,7 +14,7 @@ interface CodePreviewProps {
 export function CodePreview({ file, onSave }: CodePreviewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(file.content);
-  console.log(file);
+  console.log(content);
   const getLanguage = (filename: string) => {
     const ext = filename.split('.').pop()?.toLowerCase();
     switch (ext) {

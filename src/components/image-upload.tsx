@@ -72,12 +72,7 @@ export const ImageUpload = forwardRef<HTMLInputElement, ImageUploadProps>(
         </div>
 
         <div className="space-y-2">
-          <Input
-            placeholder="Enter instructions for analyzing the image..."
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            disabled={isLoading || !selectedFile}
-          />
+        
           <Button 
             className="w-full"
             onClick={handleSubmit}
