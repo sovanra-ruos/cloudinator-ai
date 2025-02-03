@@ -25,32 +25,33 @@ export default function Page() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
-  async function handleImageAnalysis(file: File) {
+  async function handleImageAnalysis(file: File, prompt: string) {
     setIsProcessing(true)
     try {
       const formData = new FormData()
       formData.append("image", file)
-
+      formData.append("prompt", prompt) // Add the prompt to the form data
+  
       const response = await fetch("/api/analyze-image", {
         method: "POST",
         body: formData,
       })
-
+  
       const data = await response.json()
       if (!response.ok) {
         throw new Error(data.error || "Failed to analyze image")
       }
-
+  
       const newFiles = Object.entries(data.files || {}).map(([path, content]) => ({
         path,
         content: content as string,
       }))
-
+  
       setFiles(newFiles)
       if (newFiles.length > 0) {
         setSelectedFile(newFiles[0])
       }
-
+  
       toast({
         title: "Success",
         description: "Code extracted successfully from image",
