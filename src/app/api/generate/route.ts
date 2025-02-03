@@ -37,10 +37,23 @@ export async function POST(request: NextRequest) {
             Return a JSON object with this format:
             {
               "files": {
-                "index.html": "YOUR_HTML_CONTENT",
-                "styles.css": "YOUR_CSS_CONTENT",
-                "script.js": "YOUR_JS_CONTENT",
-                "README.md": "YOUR_README_CONTENT"
+                "index.html": "<!DOCTYPE html>
+<html>
+<head>
+<title>Web Project</title>
+<link rel=\"stylesheet\" href=\"./styles.css\">
+</head>
+<body>
+  <header>
+  </header>
+  <main>
+  </main>
+  
+  <script src=\"./script.js\"></script>
+</body>
+</html>",
+                "styles.css": "/* Your CSS content goes here */",
+                "script.js": "/* Your JavaScript content goes here */"
               }
             }
             
