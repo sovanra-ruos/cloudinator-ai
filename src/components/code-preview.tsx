@@ -1,87 +1,78 @@
-"use client"
-
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Save } from "lucide-react"
-import Editor from "@monaco-editor/react"
+// components/code-preview.tsx
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 
 interface CodePreviewProps {
   file: {
-    path: string
-    content: string
-  }
-  onSave?: (path: string, content: string) => Promise<void>
+    name: string;
+    content: string;
+  };
+  onSave?: (filename: string, content: string) => Promise<void>;
 }
 
 export function CodePreview({ file, onSave }: CodePreviewProps) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [content, setContent] = useState(file.content)
-  const [isSaving, setIsSaving] = useState(false)
-
+  const [isEditing, setIsEditing] = useState(false);
+  const [content, setContent] = useState(file.content);
+  console.log(file);
   const getLanguage = (filename: string) => {
-    const ext = filename.split(".").pop()
+    const ext = filename.split('.').pop()?.toLowerCase();
     switch (ext) {
-      case "ts":
-      case "tsx":
-        return "typescript"
-      case "js":
-      case "jsx":
-        return "javascript"
-      case "css":
-        return "css"
-      case "html":
-        return "html"
-      default:
-        return "text"
+      case 'html': return 'html';
+      case 'css': return 'css';
+      case 'js': return 'javascript';
+      case 'ts': return 'typescript';
+      case 'json': return 'json';
+      case 'md': return 'markdown';
+      default: return 'plaintext';
     }
-  }
-
-  const handleSave = async () => {
-    if (!onSave) return
-
-    setIsSaving(true)
-    try {
-      await onSave(file.path, content)
-    } finally {
-      setIsSaving(false)
-      setIsEditing(false)
-    }
-  }
+  };
 
   return (
-    <Card>
-      <div className="flex items-center justify-between p-4 border-b">
-        <h3 className="font-mono text-sm">{file.path}</h3>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setIsEditing(!isEditing)}>
-            {isEditing ? "Preview" : "Edit"}
-          </Button>
-          {isEditing && (
-            <Button variant="default" size="sm" onClick={handleSave} disabled={isSaving}>
-              <Save className="h-4 w-4 mr-2" />
-              {isSaving ? "Saving..." : "Save"}
-            </Button>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">{file.name}</h3>
+        <div className="flex gap-2">
+          {onSave && (
+            <>
+              <Button
+                size="sm"
+                variant={isEditing ? "outline" : "default"}
+                onClick={() => setIsEditing(!isEditing)}
+              >
+                {isEditing ? 'Cancel' : 'Edit'}
+              </Button>
+              {isEditing && (
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    await onSave(file.name, content);
+                    setIsEditing(false);
+                  }}
+                >
+                  Save
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
-      <div className="p-0">
-        <Editor
-          height="400px"
-          language={getLanguage(file.path)}
-          value={content}
-          onChange={(value) => value && setContent(value)}
-          options={{
-            minimap: { enabled: false },
-            fontSize: 14,
-            lineNumbers: "on",
-            readOnly: !isEditing,
-            wordWrap: "on",
-            theme: "vs-dark",
-          }}
-        />
-      </div>
-    </Card>
-  )
-}
 
+      <Card className="relative">
+        {isEditing ? (
+          <textarea
+            className="w-full h-[400px] p-4 font-mono text-sm bg-background resize-none"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+          />
+        ) : (
+          <pre className="p-4 overflow-auto h-[400px] text-sm">
+            <code className={`language-${getLanguage(file.name)}`}>
+              {file.content}
+            </code>
+          </pre>
+        )}
+      </Card>
+    </div>
+  );
+}

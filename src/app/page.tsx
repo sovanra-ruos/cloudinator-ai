@@ -11,9 +11,16 @@ import { CodePreview } from "@/components/code-preview"
 import { FileTree } from "@/components/file-tree"
 import { ImageUpload } from "@/components/image-upload"
 
+
+
+export interface ProjectResponse {
+  projectId: string;
+  files: GeneratedFile[];
+}
 interface GeneratedFile {
-  path: string
-  content: string
+  name: string;
+  path: string;
+  content: string;
 }
 
 export default function Page() {
@@ -30,7 +37,7 @@ export default function Page() {
     try {
       const formData = new FormData()
       formData.append("image", file)
-      formData.append("prompt", prompt) // Add the prompt to the form data
+      formData.append("prompt", prompt)
   
       const response = await fetch("/api/analyze-image", {
         method: "POST",
@@ -38,13 +45,27 @@ export default function Page() {
       })
   
       const data = await response.json()
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to analyze image")
+      
+      // Log response data in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('API Response:', data);
       }
   
-      const newFiles = Object.entries(data.files || {}).map(([path, content]) => ({
-        path,
-        content: content as string,
+      if (!response.ok) {
+        throw new Error(
+          data.error || 
+          (data.details ? `${data.error}: ${JSON.stringify(data.details)}` : "Failed to analyze image")
+        )
+      }
+  
+      if (!data.files || !Array.isArray(data.files)) {
+        throw new Error("Invalid response format: missing files array")
+      }
+  
+      const newFiles = data.files.map(file => ({
+        name: file.name,
+        path: file.path,
+        content: file.content
       }))
   
       setFiles(newFiles)
@@ -54,32 +75,25 @@ export default function Page() {
   
       toast({
         title: "Success",
-        description: "Code extracted successfully from image",
+        description: "Files generated successfully",
       })
     } catch (error) {
       console.error("Error analyzing image:", error)
+      
+      // More detailed error toast in development
+      const errorMessage = process.env.NODE_ENV === 'development' 
+        ? `${error instanceof Error ? error.message : "Unknown error"}\n\nCheck console for details.`
+        : "Failed to analyze image";
+      
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to analyze image",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
       setIsProcessing(false)
     }
   }
-
-  const saveTempCode = async (files: { path: string; content: string }[]) => {
-    try {
-      await fetch("/api/save-file", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files }),
-      })
-    } catch (error) {
-      console.error("Error saving temporary code:", error)
-    }
-  }
-
   async function handlePromptSubmit() {
     if (!prompt.trim()) return
 
@@ -101,9 +115,6 @@ export default function Page() {
         content: content as string,
       }))
 
-      // Save the generated code to a temporary location
-      await saveTempCode(newFiles)
-
       setFiles(newFiles)
       if (newFiles.length > 0) {
         setSelectedFile(newFiles[0])
@@ -124,8 +135,6 @@ export default function Page() {
       setIsProcessing(false)
     }
   }
-
-
 
   const handleDeploy = async () => {
     try {
@@ -152,7 +161,6 @@ export default function Page() {
         description: "Files deployed successfully",
       })
     } catch (error) {
-      console.log("Error deploying files:", error)
       toast({
         title: "Error",
         description: "Failed to deploy files",
@@ -207,34 +215,47 @@ export default function Page() {
                 </Tabs>
               </Card>
               <Tabs value={activeTab}>
-                <TabsContent value="preview">
-                  <Card className="p-6">
-                    <h2 className="text-lg font-semibold mb-4">Preview</h2>
-                    {selectedFile ? (
-                      <iframe
-                        srcDoc={selectedFile.content}
-                        className="w-full h-[400px] border rounded"
-                        title="Code Preview"
-                      />
-                    ) : (
-                      <p>No file selected for preview.</p>
-                    )}
-                  </Card>
-                </TabsContent>
-                <TabsContent value="code">
-                  <Card className="p-6">
-                    <h2 className="text-lg font-semibold mb-4">Code</h2>
-                    {selectedFile && (
-                      <CodePreview
-                        file={selectedFile}
-                        onSave={async (path, content) => {
-                          setFiles(files.map((f) => (f.path === path ? { ...f, content } : f)))
-                        }}
-                      />
-                    )}
-                  </Card>
-                </TabsContent>
-              </Tabs>
+  <TabsContent value="preview">
+    <Card className="p-6">
+      <h2 className="text-lg font-semibold mb-4">Preview</h2>
+      {selectedFile ? (
+        selectedFile.name.endsWith('.html') ? (
+          <iframe
+            srcDoc={selectedFile.content}
+            className="w-full h-[400px] border rounded"
+            title="Code Preview"
+          />
+        ) : (
+          <CodePreview
+            file={selectedFile}
+            onSave={async (filename, content) => {
+              setFiles(files.map((f) => 
+                f.name === filename ? { ...f, content } : f
+              ))
+            }}
+          />
+        )
+      ) : (
+        <p>No file selected for preview.</p>
+      )}
+    </Card>
+  </TabsContent>
+  <TabsContent value="code">
+    <Card className="p-6">
+      <h2 className="text-lg font-semibold mb-4">Code</h2>
+      {selectedFile && (
+        <CodePreview
+          file={selectedFile}
+          onSave={async (filename, content) => {
+            setFiles(files.map((f) => 
+              f.name === filename ? { ...f, content } : f
+            ))
+          }}
+        />
+      )}
+    </Card>
+  </TabsContent>
+</Tabs>
             </div>
           </main>
         </div>
@@ -250,6 +271,4 @@ export default function Page() {
     </SidebarProvider>
   )
 }
-
-
 
