@@ -1,57 +1,123 @@
-import { GoogleGenerativeAI } from "@google/generative-ai"
-import { NextResponse } from "next/server"
+// app/api/generate/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { saveTempFiles, type GeneratedFile } from "@/utils/tempFiles";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+const initializeGeminiAI = () => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY environment variable is not set");
+  }
+  return new GoogleGenerativeAI(apiKey);
+};
 
-export async function POST(request: Request) {
+// app/api/generate/route.ts
+export async function POST(request: NextRequest) {
   try {
-    const { prompt } = await request.json()
+    // Check the content type of the request
+    const contentType = request.headers.get('content-type');
 
-    if (!prompt) {
-      return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
-    }
+    // Handle JSON for text-only mode
+    if (contentType?.includes('application/json')) {
+      const { prompt } = await request.json();
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" })
+      if (!prompt) {
+        return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
+      }
 
-    const result = await model.generateContent(`
-      Based on this description, generate a complete file structure with code:
-      ${prompt}
-      
-      Respond with a JSON object where each key is a file path and each value is the complete code for that file.
-      The response should be in the following format:
-      {
-        "files": {
-          "filename1.tsx": "content1",
-          "filename2.css": "content2"
+      const genAI = initializeGeminiAI();
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      const result = await model.generateContent([
+        {
+          text: `
+            ${prompt ? `User Instructions: ${prompt}\n` : ''}
+            
+            Generate a web project based on the provided prompt.
+            Return a JSON object with this format:
+            {
+              "files": {
+                "index.html": "<!DOCTYPE html>
+<html>
+<head>
+<title>Web Project</title>
+<link rel=\"stylesheet\" href=\"./styles.css\">
+</head>
+<body>
+  <header>
+  </header>
+  <main>
+  </main>
+  
+  <script src=\"./script.js\"></script>
+</body>
+</html>",
+                "styles.css": "/* Your CSS content goes here */",
+                "script.js": "/* Your JavaScript content goes here */"
+              }
+            }
+            
+            IMPORTANT:
+            - Response must be valid JSON only
+            - No text before or after the JSON object
+            - No code block markers
+          `
         }
-      }
+      ]);
+
+      const text = result.response.text();
+      console.log('Raw AI response:', text);
+
+      // Clean the response text
+      const cleanedText = text.replace(/```json\n|\n```|```/g, '').trim();
       
-      Ensure that the content is properly escaped for JSON.
-    `)
+      try {
+        const parsedResponse = JSON.parse(cleanedText);
+        
+        if (!parsedResponse.files) {
+          throw new Error('Response missing files object');
+        }
 
-    const response = result.response
-    const text = response.text()
+        // Convert the files object to our expected format
+        const files: GeneratedFile[] = Object.entries(parsedResponse.files).map(([name, content]) => ({
+          name,
+          content: content as string
+        }));
 
-    try {
-      // Try to parse the entire response as JSON first
-      const parsedResponse = JSON.parse(text)
-      return NextResponse.json(parsedResponse)
-    } catch (e) {
-      console.log("Failed to parse response as JSON:", e)
-      // If that fails, try to extract JSON from the text
-      const jsonMatch = text.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) {
-        throw new Error("Could not extract valid JSON from response")
+        // Save the files
+        const { id, files: savedFiles } = await saveTempFiles(files);
+
+        return NextResponse.json({
+          success: true,
+          projectId: id,
+          files: savedFiles
+        });
+
+      } catch (parseError) {
+        console.error('Parse error:', parseError);
+        console.error('Cleaned text:', cleanedText);
+        return NextResponse.json({
+          error: 'Failed to parse AI response',
+          details: process.env.NODE_ENV === 'development' ? {
+            error: parseError.message,
+            rawResponse: text.slice(0, 500) + '...' // Truncate for readability
+          } : undefined
+        }, { status: 500 });
       }
-      const parsedResponse = JSON.parse(jsonMatch[0])
-      return NextResponse.json(parsedResponse)
+    } else {
+      return NextResponse.json(
+        { error: "Unsupported content type. Use application/json" }, 
+        { status: 400 }
+      );
     }
-
   } catch (error) {
-    console.error("Error in generate route:", error)
+    console.error("Error in generate route:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to generate code" },
+      { 
+        error: error instanceof Error ? error.message : "Failed to process request",
+        details: process.env.NODE_ENV === 'development' ? error : undefined
+      },
       { status: 500 }
-    )
+    );
   }
 }
