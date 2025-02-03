@@ -38,37 +38,37 @@ export default function Page() {
       const formData = new FormData()
       formData.append("image", file)
       formData.append("prompt", imagePrompt || prompt) // Use image-specific prompt or main prompt
-  
+
       const response = await fetch("/api/analyze-image", {
         method: "POST",
         body: formData,
         contentType: false,
       })
-  
+
       const data = await response.json()
-      
+
       if (!response.ok) {
         throw new Error(
-          data.error || 
+          data.error ||
           (data.details ? `${data.error}: ${JSON.stringify(data.details)}` : "Failed to analyze image")
         )
       }
-  
+
       if (!data.files || !Array.isArray(data.files)) {
         throw new Error("Invalid response format: missing files array")
       }
-  
-      const newFiles = data.files.map(file => ({
+
+      const newFiles = data.files.map((file: { name: string; path: string; content: string }) => ({
         name: file.name,
         path: file.path,
         content: file.content
-      }))
-  
+      }));
+
       setFiles(newFiles)
       if (newFiles.length > 0) {
         setSelectedFile(newFiles[0])
       }
-  
+
       toast({
         title: "Success",
         description: "Files generated successfully",
@@ -88,35 +88,45 @@ export default function Page() {
   async function handleGenerate() {
     if (!prompt.trim()) return;
     setIsProcessing(true);
-    
+
     try {
+      // Clear localStorage
+      localStorage.removeItem("projectId");
+
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
-  
+
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || "Failed to generate code");
       }
-  
+
+      console.log("handleGenerate data", data.projectId);
+
+      // Save projectId to localStorage
+      localStorage.setItem("projectId", data.projectId);
+
       // Check if the response contains the expected 'files' property
       if (!data.files || !Array.isArray(data.files)) {
         throw new Error("Invalid response format: missing files array");
       }
-  
-      const newFiles = data.files.map((file) => ({
+
+      const newFiles = data.files.map((file: { name: string; path: string; content: string }) => ({
         name: file.name,
         path: file.path,
         content: file.content,
       }));
-  
+
+      console.log("handleGenerate", newFiles);
+
       setFiles(newFiles);
       if (newFiles.length > 0) {
         setSelectedFile(newFiles[0]);
       }
-  
+
       toast({
         title: "Success",
         description: "Code generated successfully",
@@ -132,6 +142,7 @@ export default function Page() {
       setIsProcessing(false);
     }
   }
+
   const handleDeploy = async () => {
     try {
       const response = await fetch("/api/deploy", {
@@ -157,12 +168,46 @@ export default function Page() {
         description: "Files deployed successfully",
       })
     } catch (error) {
+      console.log("Error deploying files:", error)
       toast({
         title: "Error",
         description: "Failed to deploy files",
         variant: "destructive",
       })
     }
+  }
+
+  const handlePushCode = async () => {
+
+    try {
+      const projectId = localStorage.getItem("projectId");
+      if (!projectId) {
+        throw new Error("No projectId found in localStorage");
+      }
+
+      const response = await fetch("/api/git-push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to make the project public");
+      }
+
+      toast({
+        title: "Success",
+        description: "Project made public successfully",
+      });
+    } catch (error) {
+      console.error("Error making project public:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to make project public",
+        variant: "destructive",
+      });
+    }
+
   }
 
   return (
@@ -181,6 +226,7 @@ export default function Page() {
                 </Tabs>
               </div>
               <div className="flex items-center gap-2">
+                <Button onClick={handlePushCode}>public</Button>
                 <Button onClick={handleDeploy}>Deploy</Button>
               </div>
             </div>
@@ -193,29 +239,29 @@ export default function Page() {
                     <TabsTrigger value="text">Text Only</TabsTrigger>
                     <TabsTrigger value="image">With Image</TabsTrigger>
                   </TabsList>
-                  
+
                   <div className="space-y-4">
                     <Textarea
-                      placeholder={inputMode === "text" ? 
-                        "Describe what code you want to generate..." : 
+                      placeholder={inputMode === "text" ?
+                        "Describe what code you want to generate..." :
                         "Add any specific instructions for the image analysis (optional)..."
                       }
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
                       className="min-h-[100px]"
                     />
-                    
+
                     {inputMode === "image" && (
-                      <ImageUpload 
-                        ref={fileInputRef} 
-                        onImageSelected={handleImageAnalysis} 
-                        isLoading={isProcessing} 
+                      <ImageUpload
+                        ref={fileInputRef}
+                        onImageSelected={handleImageAnalysis}
+                        isLoading={isProcessing}
                       />
                     )}
-                    
+
                     {inputMode === "text" && (
-                      <Button 
-                        onClick={handleGenerate} 
+                      <Button
+                        onClick={handleGenerate}
                         disabled={isProcessing || !prompt.trim()}
                         className="w-full"
                       >
@@ -241,7 +287,7 @@ export default function Page() {
                         <CodePreview
                           file={selectedFile}
                           onSave={async (filename, content) => {
-                            setFiles(files.map((f) => 
+                            setFiles(files.map((f) =>
                               f.name === filename ? { ...f, content } : f
                             ))
                           }}
@@ -259,7 +305,7 @@ export default function Page() {
                       <CodePreview
                         file={selectedFile}
                         onSave={async (filename, content) => {
-                          setFiles(files.map((f) => 
+                          setFiles(files.map((f) =>
                             f.name === filename ? { ...f, content } : f
                           ))
                         }}

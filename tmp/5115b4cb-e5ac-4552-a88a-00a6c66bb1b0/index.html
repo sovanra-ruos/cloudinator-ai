@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Analyzer</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="script.js" defer></script>
+</head>
+<body class="bg-gray-100">
+  <div class="container mx-auto p-8">
+    <h1 class="text-3xl font-bold mb-4">Image Analyzer</h1>
+    <div class="flex space-x-4">
+      <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Text Prompt</button>
+      <label for="imageUpload" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded cursor-pointer">Image Upload</label>
+      <input type="file" id="imageUpload" class="hidden" accept="image/*">
+      <div id="imagePreview" class="w-64 h-64 border-dashed border-2 border-gray-400 rounded-lg flex items-center justify-center mt-4">
+        <div id="uploadIcon" class="text-gray-400 text-4xl">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+        </div>
+      </div> 
+    </div>
+    <textarea id="analysisInstructions" class="w-full mt-4 p-2 border border-gray-300 rounded" placeholder="Enter instructions for analyzing the image..."></textarea>
+    <button id="analyzeButton" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded mt-4">Analyze Image</button>
+
+    <div class="mt-8">
+      <h2 class="text-xl font-bold mb-2">Preview</h2>
+      <div id="previewContainer" class="border border-gray-300 rounded p-4">
+        <p id="noFileMessage">No file selected for preview.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,5 +1,5 @@
 // components/file-tree.tsx
-import { FileIcon, FolderIcon } from "lucide-react";
+import { FileIcon } from "lucide-react";
 
 interface FileTreeProps {
   files: Array<{
@@ -14,7 +14,7 @@ interface FileTreeProps {
 export function FileTree({ files, selectedFile, onSelect }: FileTreeProps) {
   return (
     <div className="space-y-2">
-      {files.map((file, index) => (
+      {files.map((file) => (
         <button
           key={file.path}
           className={`w-full flex items-center gap-2 px-2 py-1 rounded hover:bg-accent text-left ${
