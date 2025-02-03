@@ -10,6 +10,7 @@ import { Sidebar, SidebarProvider } from "@/components/ui/sidebar"
 import { CodePreview } from "@/components/code-preview"
 import { FileTree } from "@/components/file-tree"
 import { ImageUpload } from "@/components/image-upload"
+import { Code, FileText, Loader2 } from "lucide-react"
 
 export interface ProjectResponse {
   projectId: string;
@@ -32,12 +33,16 @@ export default function Page() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+  };
+
   async function handleImageAnalysis(file: File, imagePrompt: string) {
     setIsProcessing(true)
     try {
       const formData = new FormData()
       formData.append("image", file)
-      formData.append("prompt", imagePrompt || prompt) // Use image-specific prompt or main prompt
+      formData.append("prompt", imagePrompt || prompt)
 
       const response = await fetch("/api/analyze-image", {
         method: "POST",
@@ -72,13 +77,14 @@ export default function Page() {
       toast({
         title: "Success",
         description: "Files generated successfully",
+        variant: "success"
       })
     } catch (error) {
       console.error("Error analyzing image:", error)
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to analyze image",
-        variant: "destructive",
+        variant: "error",
       })
     } finally {
       setIsProcessing(false)
@@ -90,7 +96,6 @@ export default function Page() {
     setIsProcessing(true);
 
     try {
-      // Clear localStorage
       localStorage.removeItem("projectId");
 
       const response = await fetch("/api/generate", {
@@ -104,12 +109,8 @@ export default function Page() {
         throw new Error(data.error || "Failed to generate code");
       }
 
-      console.log("handleGenerate data", data.projectId);
-
-      // Save projectId to localStorage
       localStorage.setItem("projectId", data.projectId);
 
-      // Check if the response contains the expected 'files' property
       if (!data.files || !Array.isArray(data.files)) {
         throw new Error("Invalid response format: missing files array");
       }
@@ -120,23 +121,25 @@ export default function Page() {
         content: file.content,
       }));
 
-      console.log("handleGenerate", newFiles);
-
       setFiles(newFiles);
       if (newFiles.length > 0) {
         setSelectedFile(newFiles[0]);
       }
 
+      // Switch to code tab after successful generation
+      setActiveTab("code");
+
       toast({
         title: "Success",
         description: "Code generated successfully",
+        variant: "success"
       });
     } catch (error) {
       console.error("Error generating code:", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to generate code",
-        variant: "destructive",
+        variant: "error",
       });
     } finally {
       setIsProcessing(false);
@@ -166,19 +169,19 @@ export default function Page() {
       toast({
         title: "Success",
         description: "Files deployed successfully",
+        variant: "success"
       })
     } catch (error) {
       console.log("Error deploying files:", error)
       toast({
         title: "Error",
         description: "Failed to deploy files",
-        variant: "destructive",
+        variant: "error",
       })
     }
   }
 
   const handlePushCode = async () => {
-
     try {
       const projectId = localStorage.getItem("projectId");
       if (!projectId) {
@@ -198,58 +201,108 @@ export default function Page() {
       toast({
         title: "Success",
         description: "Project made public successfully",
+        variant: "success"
       });
     } catch (error) {
       console.error("Error making project public:", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to make project public",
-        variant: "destructive",
+        variant: "error",
       });
     }
-
   }
 
   return (
     <SidebarProvider>
       <div className="flex h-screen bg-background">
         <div className="flex-1 flex flex-col">
-          <header className="border-b">
+          <header className="border-b py-2">
             <div className="container flex items-center justify-between h-14 px-4">
               <div className="flex items-center gap-4">
-                <h1 className="text-xl font-semibold">AI Code Generator</h1>
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList>
-                    <TabsTrigger value="preview">Preview</TabsTrigger>
-                    <TabsTrigger value="code">Code</TabsTrigger>
+                <h1 className="text-3xl font-bold text-purple-500">Cloudinator AI</h1>
+                <p className="text-purple-500">Code Generator</p>
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-[200px]">
+                  <TabsList className="w-full grid grid-cols-2">
+                    <TabsTrigger
+                      value="preview"
+                      className="data-[state=active]:bg-purple-500 data-[state=active]:text-white flex items-center justify-center space-x-2"
+                    >
+                      <FileText size={20} /> {/* Preview Tab Icon */}
+                      <span>Preview</span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="code"
+                      className="data-[state=active]:bg-purple-500 data-[state=active]:text-white flex items-center justify-center space-x-2"
+                    >
+                      <Code size={20} /> {/* Code Tab Icon */}
+                      <span>Code</span>
+                    </TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
               <div className="flex items-center gap-2">
-                <Button onClick={handlePushCode}>public</Button>
+                <Button onClick={handlePushCode}>Public</Button>
                 <Button onClick={handleDeploy}>Deploy</Button>
               </div>
             </div>
           </header>
           <main className="flex-1 overflow-auto p-4">
-            <div className="max-w-4xl mx-auto space-y-6">
+            <div className="space-y-6">
               <Card className="p-6">
                 <Tabs value={inputMode} onValueChange={(value) => setInputMode(value as "text" | "image")}>
-                  <TabsList className="mb-4">
-                    <TabsTrigger value="text">Text Only</TabsTrigger>
-                    <TabsTrigger value="image">With Image</TabsTrigger>
+                  <TabsList className="mb-4 w-full grid grid-cols-2">
+                    <TabsTrigger
+                      value="text"
+                      className="data-[state=active]:bg-purple-500 data-[state=active]:text-white"
+                    >
+                      Input Text
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="image"
+                      className="data-[state=active]:bg-purple-500 data-[state=active]:text-white"
+                    >
+                      Add Image
+                    </TabsTrigger>
                   </TabsList>
 
                   <div className="space-y-4">
-                    <Textarea
-                      placeholder={inputMode === "text" ?
-                        "Describe what code you want to generate..." :
-                        "Add any specific instructions for the image analysis (optional)..."
-                      }
-                      value={prompt}
-                      onChange={(e) => setPrompt(e.target.value)}
-                      className="min-h-[100px]"
-                    />
+                    <div className="relative group">
+                      <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-600 via-purple-400 to-purple-600 rounded-lg blur opacity-30 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
+                      <div className="relative">
+                        <Textarea
+                          placeholder={inputMode === "text" ?
+                            "Describe what code you want to generate..." :
+                            "Add any specific instructions for the image analysis (optional)..."
+                          }
+                          value={prompt}
+                          onChange={(e) => {
+                            setPrompt(e.target.value);
+                            // Add typing animation effect
+                            const el = e.target;
+                            el.style.height = 'auto';
+                            el.style.height = el.scrollHeight + 'px';
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && e.shiftKey === false && !isProcessing && prompt.trim()) {
+                              e.preventDefault();
+                              handleGenerate();
+                            }
+                          }}
+                          className="min-h-[150px] w-full bg-background/80 border-2 border-purple-500/20 rounded-lg p-4 font-mono text-sm transition-all duration-300 focus:ring-2 focus:ring-purple-500/50 resize-none overflow-hidden shadow-lg focus:border-purple-500"
+                        />
+
+
+                        <div className="absolute bottom-2 right-2 text-xs text-purple-400 opacity-70">
+                          {prompt.length > 0 && `${prompt.length} characters`}
+                        </div>
+                        {prompt.length > 0 && (
+                          <div className="absolute -bottom-1 left-0 h-1 bg-gradient-to-r from-purple-600 to-purple-400 transition-all duration-300"
+                            style={{ width: `${Math.min((prompt.length / 500) * 100, 100)}%` }}>
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
                     {inputMode === "image" && (
                       <ImageUpload
@@ -263,9 +316,16 @@ export default function Page() {
                       <Button
                         onClick={handleGenerate}
                         disabled={isProcessing || !prompt.trim()}
-                        className="w-full"
+                        className="w-full bg-purple-500 hover:bg-purple-700 transition-all ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {isProcessing ? "Generating..." : "Generate Code"}
+                        {isProcessing ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Generating...</span>
+                          </div>
+                        ) : (
+                          "Generate Code"
+                        )}
                       </Button>
                     )}
                   </div>
@@ -275,7 +335,10 @@ export default function Page() {
               <Tabs value={activeTab}>
                 <TabsContent value="preview">
                   <Card className="p-6">
-                    <h2 className="text-lg font-semibold mb-4">Preview</h2>
+                    <div className="flex gap-2">
+                      <FileText size={20} />
+                      <h2 className="text-lg font-semibold mb-4">Preview</h2>
+                    </div>                  
                     {selectedFile ? (
                       selectedFile.name.endsWith('.html') ? (
                         <iframe
@@ -300,7 +363,10 @@ export default function Page() {
                 </TabsContent>
                 <TabsContent value="code">
                   <Card className="p-6">
-                    <h2 className="text-lg font-semibold mb-4">Code</h2>
+                    <div className="flex gap-2">
+                      <Code size={20} />
+                      <h2 className="text-lg font-semibold mb-4">Code</h2>
+                    </div>                 
                     {selectedFile && (
                       <CodePreview
                         file={selectedFile}
@@ -317,9 +383,10 @@ export default function Page() {
             </div>
           </main>
         </div>
-        <Sidebar className="w-64 border-l" side="right">
-          <div className="p-4 border-b">
-            <h2 className="font-semibold">Generated Files</h2>
+        <Sidebar className="w-64 border-l py-4" side="right">
+          <div className="p-4 border-b flex items-center space-x-2">
+            <FileText className="text-purple-500" size={20} />
+            <h2 className="font-semibold text-md text-purple-500">Generated Files</h2>
           </div>
           <div className="p-2">
             <FileTree files={files} selectedFile={selectedFile} onSelect={setSelectedFile} />
