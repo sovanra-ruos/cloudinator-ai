@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     await execCommand("git init --initial-branch=main ", projectPath);
     await execCommand("git add .", projectPath);
     await execCommand(`git commit -m "Initial commit"`, projectPath);
-    await execCommand(`git remote add origin https://git.cloudinator.cloud/argocd/${projectId}.git`, projectPath);
+    await execCommand(`git remote add origin https://git.cloudinator.cloud/cloudinator-ai/${projectId}.git`, projectPath);
     await execCommand("git push -u origin main", projectPath);
 
     return NextResponse.json({ success: true });

@@ -51,6 +51,7 @@ export default function CodePreview({ file, onSave }: CodePreviewProps) {
         description: "File saved successfully",
       })
     } catch (error) {
+      console.log("Error saving file:", error)
       toast({
         title: "Error",
         description: "Failed to save file",

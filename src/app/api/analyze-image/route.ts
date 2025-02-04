@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           error: 'Failed to parse AI response',
           details: process.env.NODE_ENV === 'development' ? {
-            error: parseError.message,
+            error: (parseError instanceof Error ? parseError.message : 'Unknown error'),
             rawResponse: text.slice(0, 500) + '...' // Truncate for readability
           } : undefined
         }, { status: 500 });
